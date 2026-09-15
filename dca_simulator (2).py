@@ -192,13 +192,6 @@ if prices is not None and not prices.empty:
         f"{lump_growth - total_growth:+.1f} pts vs. DCA"
     )
 
-    # --- INFLATION-ADJUSTED VALUE ---
-    real_portfolio_value = portfolio_value / ((1 + inflation_rate / 100) ** years_elapsed)
-    m9.metric(
-        "Inflation-Adjusted Value",
-        f"${real_portfolio_value:,.2f}",
-        f"in today's purchasing power"
-    )
 
     st.divider()
 
