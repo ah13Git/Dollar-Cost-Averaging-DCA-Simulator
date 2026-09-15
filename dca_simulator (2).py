@@ -128,15 +128,6 @@ end_date = st.sidebar.date_input(
 
 frequency = st.sidebar.selectbox("Investment Frequency", list(FREQ_RESAMPLE.keys()))
 
-st.sidebar.subheader("Extra Comparisons")
-inflation_rate = st.sidebar.number_input(
-    "Assumed Annual Inflation (%)", value=3.0, min_value=0.0, max_value=15.0, step=0.5,
-    help="Used to show your portfolio's value in today's purchasing power."
-)
-compare_to_spy = st.sidebar.checkbox(
-    "Compare to SPY benchmark", value=False,
-    help="Runs the same DCA strategy on SPY for comparison. Ignored if your ticker is already SPY."
-)
 
 if st.sidebar.button("🔄 Force Refresh Data"):
     st.cache_data.clear()
