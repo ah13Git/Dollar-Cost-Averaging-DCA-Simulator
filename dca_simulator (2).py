@@ -221,36 +221,7 @@ if prices is not None and not prices.empty:
         else:
             st.success(f"**DCA came out ahead:** spreading out your buys beat a Day 1 lump sum by ${portfolio_value - lump_value:,.0f}.")
 
-    # --- SPY BENCHMARK COMPARISON ---
-    if compare_to_spy and ticker_symbol != "SPY":
-        st.divider()
-        st.subheader("⚖️ Benchmark: Same Strategy on SPY")
-        spy_prices, spy_error = load_data("SPY", start_date, end_date)
-        if spy_prices is not None and not spy_prices.empty:
-            if isinstance(spy_prices, pd.DataFrame):
-                spy_prices = spy_prices.iloc[:, 0]
-            spy_buy_prices = get_buy_prices(spy_prices, frequency)
-            if not spy_buy_prices.empty:
-                spy_total_invested = len(spy_buy_prices) * invest_amount
-                spy_shares_held = (invest_amount / spy_buy_prices).sum()
-                spy_current_price = float(spy_prices.iloc[-1])
-                spy_portfolio_value = spy_shares_held * spy_current_price
-                spy_growth = ((spy_portfolio_value / spy_total_invested) - 1) * 100
-
-                b1, b2, b3 = st.columns(3)
-                b1.metric(f"{ticker_symbol} Value", f"${portfolio_value:,.2f}", f"{total_growth:.1f}%")
-                b2.metric("SPY Value (same $, same dates)", f"${spy_portfolio_value:,.2f}", f"{spy_growth:.1f}%")
-                diff = total_growth - spy_growth
-                b3.metric(
-                    f"{ticker_symbol} vs. SPY",
-                    f"{diff:+.1f} pts",
-                    "outperformed" if diff > 0 else "underperformed"
-                )
-            else:
-                st.info("Not enough SPY data in this date range to compare.")
-        else:
-            st.info(f"Couldn't load SPY data for comparison. {spy_error or ''}")
-
+ 
     # --- TRANSACTION LOG + CSV EXPORT ---
     st.divider()
     with st.expander("🧾 View Full Transaction Log"):
