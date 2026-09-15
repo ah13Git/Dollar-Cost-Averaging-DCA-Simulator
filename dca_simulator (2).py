@@ -27,6 +27,9 @@ st.sidebar.divider()
 
 FREQ_RESAMPLE = {"Daily": "B", "Weekly": "W-MON", "Monthly": "MS"}
 
+# Quote types worth showing in the search dropdown (drops things like OPTION)
+SEARCHABLE_TYPES = {"EQUITY", "ETF", "INDEX", "MUTUALFUND", "CRYPTOCURRENCY", "CURRENCY", "FUTURE"}
+
 
 # =========================================================
 # SHARED HELPERS
@@ -91,6 +94,36 @@ def get_earliest_available_date(symbol):
     return None
 
 
+@st.cache_data(ttl=3600)
+def search_symbols(query):
+    """Look up tickers by company name (or symbol) via Yahoo's search/autocomplete.
+
+    Returns a list of dicts: symbol, name, exchange, type. Falls back to an
+    empty list (never raises) so the caller can decide how to handle a miss.
+    """
+    query = (query or "").strip()
+    if not query:
+        return []
+    try:
+        raw = yf.Search(query, max_results=10).quotes
+    except Exception:
+        return []
+
+    matches = []
+    for r in raw:
+        symbol = r.get("symbol")
+        quote_type = (r.get("quoteType") or "").upper()
+        if not symbol or (quote_type and quote_type not in SEARCHABLE_TYPES):
+            continue
+        matches.append({
+            "symbol": symbol,
+            "name": r.get("shortname") or r.get("longname") or symbol,
+            "exchange": r.get("exchange", ""),
+            "type": quote_type,
+        })
+    return matches
+
+
 def get_buy_prices(prices, frequency):
     """Resample a price series down to the buy dates for a given frequency."""
     buy_days = prices.resample(FREQ_RESAMPLE[frequency]).first().dropna()
@@ -98,10 +131,43 @@ def get_buy_prices(prices, frequency):
 
 
 # =========================================================
-# HISTORICAL BACKTEST (real market data)
+# TICKER SEARCH (company name OR ticker symbol)
 # =========================================================
 st.sidebar.header("Backtest Settings")
-ticker_symbol = st.sidebar.text_input("Ticker (e.g., SPY, AAPL, MSFT)", value="SPY").strip().upper()
+search_query = st.sidebar.text_input(
+    "Search by company name or ticker", value="Apple", help="e.g. 'Apple', 'AAPL', 'S&P 500', 'SPY'"
+).strip()
+
+ticker_symbol = ""
+selected_name = ""
+
+if search_query:
+    matches = search_symbols(search_query)
+
+    if matches:
+        options = [f"{m['symbol']} — {m['name']} ({m['exchange']})" for m in matches]
+
+        # If the query already IS a valid symbol among the results, default to it
+        default_idx = 0
+        for i, m in enumerate(matches):
+            if m["symbol"].upper() == search_query.upper():
+                default_idx = i
+                break
+
+        choice = st.sidebar.selectbox("Select the match you meant", options, index=default_idx)
+        chosen = matches[options.index(choice)]
+        ticker_symbol = chosen["symbol"].upper()
+        selected_name = chosen["name"]
+    else:
+        # No matches from search — treat the raw input as a ticker symbol,
+        # so power users can still type an obscure/exact symbol directly.
+        st.sidebar.caption(f"No name matches for '{search_query}' — using it as a ticker symbol.")
+        ticker_symbol = search_query.upper()
+
+if ticker_symbol:
+    label = f"**{ticker_symbol}**" + (f" · {selected_name}" if selected_name else "")
+    st.sidebar.success(f"Using {label}")
+
 invest_amount = st.sidebar.number_input("Amount per Interval ($)", value=100, min_value=1)
 
 today = datetime.now().date()
@@ -134,7 +200,7 @@ if st.sidebar.button("🔄 Force Refresh Data"):
 
 # --- GUARD: empty ticker ---
 if not ticker_symbol:
-    st.warning("Enter a ticker symbol in the sidebar to begin.")
+    st.warning("Search for a company or ticker in the sidebar to begin.")
     st.stop()
 
 prices, fetch_error = load_data(ticker_symbol, start_date, end_date)
